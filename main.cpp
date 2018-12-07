@@ -22,6 +22,7 @@
 #include <gsl/gsl_sf_gegenbauer.h>
 
 #include "solver.h"
+#include "derivative.h"
 
 using namespace std;
 
@@ -78,13 +79,19 @@ int main(int argc, char *argv[])
 	double cen_psi = 0.5 * ( right_psi_endpoint + left_psi_endpoint );
 
 	// calculate derivatives at endpoints
-	const int nOrder = 10, nL = 3, nR = 3;
+	const int nOrder = 11, nL = 3, nR = 3;
 	vector<double> fevalsL(nOrder), fevalsR(nOrder);
 
 	// set psi points near endpoints (for evaluating derivatives)
-	const double stepsize = 0.00025;
-	vector<double> left_endpoints = linspace(left_psi_endpoint, left_psi_endpoint+double(nOrder-1)*stepsize, nOrder);
-	vector<double> right_endpoints = linspace(right_psi_endpoint - double(nOrder-1)*stepsize, right_psi_endpoint, nOrder);
+	const double stepsize = 0.001;
+	//vector<double> left_endpoints = linspace(left_psi_endpoint, left_psi_endpoint+double(nOrder-1)*stepsize, nOrder);
+	//vector<double> right_endpoints = linspace(right_psi_endpoint - double(nOrder-1)*stepsize, right_psi_endpoint, nOrder);
+
+	//for central derivatives
+	vector<double> left_endpoints = linspace( left_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+												left_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+	vector<double> right_endpoints = linspace( right_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+												right_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
 
 	// evaluate function near endpoints
 	get_function_evals(left_endpoints, fevalsL, Radius, correctionFactor, R, dRdpsi, parameters);
@@ -102,8 +109,10 @@ int main(int argc, char *argv[])
 
 
 	// now get derivatives
-	vector<double> left_derivatives = get_derivatives(fevalsL, stepsize, 1);
-	vector<double> right_derivatives = get_derivatives(fevalsR, stepsize, -1);
+	//vector<double> left_derivatives = get_derivatives(fevalsL, stepsize, 1);
+	//vector<double> right_derivatives = get_derivatives(fevalsR, stepsize, -1);
+	vector<double> left_derivatives = get_central_derivatives(fevalsL, stepsize, 1);
+	vector<double> right_derivatives = get_central_derivatives(fevalsR, stepsize, -1);
 
 	///*
 	cout << "Left end:" << endl;
@@ -185,7 +194,7 @@ int main(int argc, char *argv[])
 	
 	double coeff_matrix [nD*nD], constraint_vector[nD];
 
-	// fill constrain_vector
+	// fill constraint_vector
 	{
 		int idx = 0;
 		for (int i = 0; i <= nL; ++i)
@@ -343,6 +352,9 @@ void get_function_evals(vector<double> & pts, vector<double> & fevals,
 		double local_psi = pts[i];
 
 		double Temp = Radius * cos(local_psi), mu_B = correctionFactor * Radius * sin(local_psi);
+		
+		// assumes symmetry under mu_B <--> -mu_B
+		if (mu_B < 0.0) mu_B *= -1.0;
 
 
 		// To calculate S, and the thermodynamic quantities

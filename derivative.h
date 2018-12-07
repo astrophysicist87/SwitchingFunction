@@ -54,3 +54,49 @@ vector<double> get_derivatives(vector<double> & f, double stepsize, int directio
 }
 
 
+
+
+vector<double> get_central_derivatives(vector<double> & f, double stepsize, int direction)
+{
+	double adjustment = 1.0;	//heuristic
+	double h = stepsize;
+
+	double mult_factor = 1.0;
+
+	vector<double> results;
+
+	const int shift = ( f.size() - 1 ) / 2;
+
+	//=======================================
+	// derivatives
+	// function value
+	results.push_back( f[shift+0] );
+
+	//===================
+	// first derivative
+	results.push_back( (-2*f[shift-5]+25*f[shift-4]-150*f[shift-3]
+						+600*f[shift-2]-2100*f[shift-1]+0*f[shift+0]
+						+2100*f[shift+1]-600*f[shift+2]+150*f[shift+3]
+						-25*f[shift+4]+2*f[shift+5])/(2520.0*h) );
+	h *= adjustment;
+
+	//===================
+	// second derivative
+	results.push_back( (8*f[shift-5]-125*f[shift-4]+1000*f[shift-3]
+						-6000*f[shift-2]+42000*f[shift-1]-73766*f[shift+0]
+						+42000*f[shift+1]-6000*f[shift+2]+1000*f[shift+3]
+						-125*f[shift+4]+8*f[shift+5])/(25200.0*h*h) );
+	h *= adjustment;
+
+	//===================
+	// third derivative
+	results.push_back( (205*f[shift-5]-2522*f[shift-4]+14607*f[shift-3]
+						-52428*f[shift-2]+70098*f[shift-1]+0*f[shift+0]
+						-70098*f[shift+1]+52428*f[shift+2]-14607*f[shift+3]
+						+2522*f[shift+4]-205*f[shift+5])/(30240.0*h*h*h) );
+	//=======================================
+
+	return ( results );
+}
+
+
