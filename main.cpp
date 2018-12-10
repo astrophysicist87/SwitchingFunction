@@ -79,25 +79,58 @@ int main(int argc, char *argv[])
 	double cen_psi = 0.5 * ( right_psi_endpoint + left_psi_endpoint );
 
 	// calculate derivatives at endpoints
-	const int nOrder = 11, nL = 3, nR = 3;
+	const int nOrder = 11, nL = atoi(argv[2]), nR = atoi(argv[3]);
+
+	//cutoff derivatives at this order
+	int cutoff_order = 6;
+	if (nL > cutoff_order or nR > cutoff_order) exit(8);
+
 	vector<double> fevalsL(nOrder), fevalsR(nOrder);
 
+	//==========================================
+	// Set the mode for evaluating derivatives
+	int derivative_mode = 2;
+
 	// set psi points near endpoints (for evaluating derivatives)
-	const double stepsize = 0.001;
-	//vector<double> left_endpoints = linspace(left_psi_endpoint, left_psi_endpoint+double(nOrder-1)*stepsize, nOrder);
-	//vector<double> right_endpoints = linspace(right_psi_endpoint - double(nOrder-1)*stepsize, right_psi_endpoint, nOrder);
+	const double stepsize = 0.005*10.0/double(nOrder-1);
+	vector<double> left_endpoints, right_endpoints;
 
-	//for central derivatives
-	vector<double> left_endpoints = linspace( left_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
-												left_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
-	vector<double> right_endpoints = linspace( right_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
-												right_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+	//==========================================
+	// set point spacing
+	if (derivative_mode == 0)		// one-sided derivatives
+	{
+		left_endpoints = linspace(left_psi_endpoint, left_psi_endpoint+double(nOrder-1)*stepsize, nOrder);
+		right_endpoints = linspace(right_psi_endpoint - double(nOrder-1)*stepsize, right_psi_endpoint, nOrder);
+	}
+	else if (derivative_mode == 1)	// central derivatives
+	{
+		left_endpoints = linspace( left_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+									left_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+		right_endpoints = linspace( right_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+									right_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+	}
+	else if (derivative_mode == 2)	// Chebyshev estimate of derivatives
+	{
+		left_endpoints
+			= get_Chebyshev_nodes( left_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+									left_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+		right_endpoints
+			= get_Chebyshev_nodes( right_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+									right_psi_endpoint + 0.5*double(nOrder-1)*stepsize, nOrder );
+	}
+	else
+	{
+		cerr << "derivative_mode = " << derivative_mode << " not supported!" << endl;
+		exit(8);
+	}
 
-	// evaluate function near endpoints
+	//==========================================
+	// evaluate function at necessary grid points
 	get_function_evals(left_endpoints, fevalsL, Radius, correctionFactor, R, dRdpsi, parameters);
 	get_function_evals(right_endpoints, fevalsR, Radius, correctionFactor, R, dRdpsi, parameters);
 
-	///*
+
+	/*
 	cout << "Left end:" << endl;
 	for (int i = 0; i < left_endpoints.size(); ++i)
 		cout << i << "   " << left_endpoints[i] << "   " << fevalsL[i] << endl;
@@ -105,14 +138,45 @@ int main(int argc, char *argv[])
 	cout << "Right end:" << endl;
 	for (int i = 0; i < right_endpoints.size(); ++i)
 		cout << i << "   " << right_endpoints[i] << "   " << fevalsR[i] << endl;
-	//*/
+	*/
 
 
+	// max derivative of Chebyshev to compute
+	const int kmax = max(nL, nR);
+
+	// max order of Chebyshev to compute
+	const int nD = nL + nR + 2;
+	const int Nmax = nD - 1;
+
+
+	vector<double> left_derivatives, right_derivatives;
+
+	//==========================================
 	// now get derivatives
-	//vector<double> left_derivatives = get_derivatives(fevalsL, stepsize, 1);
-	//vector<double> right_derivatives = get_derivatives(fevalsR, stepsize, -1);
-	vector<double> left_derivatives = get_central_derivatives(fevalsL, stepsize, 1);
-	vector<double> right_derivatives = get_central_derivatives(fevalsR, stepsize, -1);
+	if (derivative_mode == 0)		// one-sided derivatives
+	{
+		left_derivatives = get_derivatives(fevalsL, stepsize, 1);
+		right_derivatives = get_derivatives(fevalsR, stepsize, -1);
+	}
+	else if (derivative_mode == 1)	// central derivatives
+	{
+		left_derivatives = get_central_derivatives(fevalsL, stepsize);
+		right_derivatives = get_central_derivatives(fevalsR, stepsize);
+	}
+	else if (derivative_mode == 2)	// Chebyshev estimate of derivatives
+	{
+		left_derivatives
+			= get_Chebyshev_derivatives(left_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+										left_psi_endpoint + 0.5*double(nOrder-1)*stepsize, fevalsL, nL);
+		right_derivatives
+			= get_Chebyshev_derivatives(right_psi_endpoint - 0.5*double(nOrder-1)*stepsize,
+										right_psi_endpoint + 0.5*double(nOrder-1)*stepsize, fevalsR, nR);
+	}
+	else
+	{
+		cerr << "derivative_mode = " << derivative_mode << " not supported!" << endl;
+		exit(8);
+	}
 
 	///*
 	cout << "Left end:" << endl;
@@ -125,13 +189,6 @@ int main(int argc, char *argv[])
 	//*/
 
 	if (true) exit (8);
-
-	// max derivative of Chebyshev to compute
-	const int kmax = max(nL, nR);
-
-	// max order of Chebyshev to compute
-	const int nD = nL + nR + 2;
-	const int Nmax = nD - 1;
 
 	double Chebyshev_array_L[ (Nmax+1) * (kmax+1) ], Chebyshev_array_R[ (Nmax+1) * (kmax+1) ];
 	double Gamma [kmax+1];
@@ -275,7 +332,7 @@ int main(int argc, char *argv[])
 		for (int i = 0; i < nD; ++i)
 			approx_result += the_solution[i] * cos(i*acos(Psi_trans));	//cheat way to evaluate just the Chebyshev functions
 
-		cout << atan(correctionFactor*tan(Psi_loc)) << "   " << approx_result << endl;
+		cout << Psi_loc << "   " << atan(correctionFactor*tan(Psi_loc)) << "   " << approx_result << endl;
 	}
 
 

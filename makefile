@@ -1,6 +1,6 @@
 CC = g++
 #DEBUG = 
-DEBUG = -g
+DEBUG = -g -ggdb
 #OMPFLAGS = 
 OMPFLAGS = -fopenmp
 #OPTFLAGS =
@@ -32,7 +32,7 @@ run:
 	./$(EXECUTABLE)
 
 clean:
-	rm -rf *.o *.out $(EXECUTABLE)
+	rm -rf *.o $(EXECUTABLE)
 
 
 
